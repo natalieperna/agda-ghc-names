@@ -6,6 +6,7 @@ module Main (main) where
 
 import ResolveHsNames (getResolveHsNamesMap, writeResolveHsNamesMap, apply2M, splitMapApply)
 import FixProf (updateProfFile)
+import FixSource (updateSourceFile)
 import Find (find)
 
 import Data.Char (isSpace)
@@ -25,8 +26,9 @@ main = do
   case args0 of
     "extract"  : args -> extract  args
     "fixprof"  : args -> fixprof  args
+    "fixsrc"   : args -> fixsrc   args
     "find"     : args -> find     printUsage args
-    _ -> printUsage "(fixprof|extract|find) {command args.}"
+    _ -> printUsage "(fixprof|fixsrc|extract|find) {command args.}"
 
 extract :: [String] -> IO ()
 extract args = case args of
@@ -49,3 +51,18 @@ fixProf' (keepMod, keepSrc) args = case args of
       resolve <- liftM apply2M $ getResolveHsNamesMap dir
       mapM_ (updateProfFile usage resolve keepMod keepSrc) profs
   where usage = printUsage "fixprof {+m} {+s} <dir> <File>.prof"
+
+fixsrc :: [String] -> IO ()
+fixsrc = uncurry fixSource' . getOpts False False
+  where
+    getOpts m s ("+m" : args) = getOpts True s args
+    getOpts m s ("+s" : args) = getOpts m True args
+    getOpts m s args = ((m, s), args)
+
+fixSource' (keepMod, keepSrc) args = case args of
+    [] -> usage
+    [_] -> usage
+    dir : sources -> do
+      resolve <- liftM apply2M $ getResolveHsNamesMap dir
+      mapM_ (updateSourceFile usage resolve keepMod keepSrc) sources
+  where usage = printUsage "fixsrc {+m} {+s} <dir> <File>.hs"
